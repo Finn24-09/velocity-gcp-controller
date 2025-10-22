@@ -1,0 +1,56 @@
+# Velocity GCP Controller - Example Configuration
+# This is an example configuration file showing all available options.
+# Copy this to your plugins/velocity-gcp-controller/config.yml and customize it.
+
+# Module Control - Enable or disable features
+modules:
+  gcp: true                    # GCP instance management (requires idle-management)
+  idle-management: true        # Automatic shutdown timers (requires gcp)
+  whitelist: true              # Proxy-level whitelist system
+  commands: true               # Enable /ping and /vwhitelist commands
+
+# Google Cloud Platform Configuration
+gcp:
+  project-id: "your-project-id"              # Your GCP project ID
+  instance-name: "minecraft-server"           # Name of the Compute Engine instance
+  zone: "us-central1-a"                      # GCP zone (e.g., us-central1-a, europe-west1-b)
+  use-service-account: true                  # Use instance service account (true) or JSON key (false)
+  service-account-key: "path/to/key.json"    # Path to JSON key file (only if use-service-account: false)
+  status-cache-seconds: 10                   # How long to cache instance status (reduces API calls)
+  startup-cooldown-minutes: 5                # Cooldown to prevent duplicate start commands
+
+# Timer Configuration
+timers:
+  idle-shutdown-minutes: 30       # Time to wait after last player leaves before shutdown
+  startup-timeout-minutes: 15     # Time to wait for players to join after startup (prevents orphaned instances)
+
+# Backend Server Configuration
+backend:
+  address: "localhost"            # Backend server address
+  port: 25565                     # Backend server port
+  server-name: "lobby"            # Server name as defined in velocity.toml
+
+# Whitelist Configuration
+whitelist:
+  file: "whitelist.json"                                # Whitelist file name (Minecraft format)
+  kick-message: "You are not whitelisted on this server."  # Message for non-whitelisted players
+
+# Commands Configuration
+commands:
+  authorized-uuids:               # Player UUIDs authorized to use /vwhitelist
+    - "069a79f4-44e9-4726-a5be-fca90e38aaf5"  # Replace with your UUID
+  ping-enabled: true              # Enable /ping command
+  vwhitelist-enabled: true        # Enable /vwhitelist commands
+
+# Player Messages (supports & color codes)
+messages:
+  server-starting: "&eServer is starting! &aPlease reconnect in 30-60 seconds."
+  startup-failed: "&cFailed to start server. Please contact an administrator."
+  gcp-disabled: "&cBackend server is offline and auto-start is disabled."
+
+# Logging Configuration
+logging:
+  log-connections: true           # Log player connections/disconnections
+  log-gcp-commands: true          # Log GCP start/stop commands
+  log-whitelist-checks: false     # Log whitelist check results (can be verbose)
+  log-timer-events: true          # Log timer start/cancel/expiry events

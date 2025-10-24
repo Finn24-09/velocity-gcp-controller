@@ -5,6 +5,9 @@ import com.velocitypowered.api.scheduler.ScheduledTask;
 import io.github.finn2409.velocityGcpController.config.PluginConfig;
 import org.slf4j.Logger;
 
+import java.util.Set;
+import java.util.UUID;
+import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicInteger;
 
@@ -16,6 +19,7 @@ public class IdleManagementModule implements Module {
     private final GcpModule gcpModule;
 
     private final AtomicInteger playerCount;
+    private final Set<UUID> trackedPlayers; // Track players connected to backend
     private ScheduledTask idleShutdownTask;
     private ScheduledTask startupTimeoutTask;
 
@@ -26,6 +30,7 @@ public class IdleManagementModule implements Module {
         this.plugin = plugin;
         this.gcpModule = gcpModule;
         this.playerCount = new AtomicInteger(0);
+        this.trackedPlayers = ConcurrentHashMap.newKeySet(); // Thread-safe set
     }
 
     @Override
@@ -58,8 +63,20 @@ public class IdleManagementModule implements Module {
 
     /**
      * Increment player count and cancel shutdown timer if active
+     * @param playerUuid The UUID of the player joining
      */
-    public void onPlayerJoin() {
+    public void onPlayerJoin(UUID playerUuid) {
+        // Add to tracked set
+        boolean wasAdded = trackedPlayers.add(playerUuid);
+
+        // Only increment if this is a new tracked player
+        if (!wasAdded) {
+            if (config.isLogTimerEvents()) {
+                logger.warn("[VelocityGCPController] Player {} already tracked, skipping increment", playerUuid);
+            }
+            return;
+        }
+
         int count = playerCount.incrementAndGet();
 
         if (config.isLogTimerEvents()) {
@@ -75,8 +92,20 @@ public class IdleManagementModule implements Module {
 
     /**
      * Decrement player count and start shutdown timer if count reaches 0
+     * @param playerUuid The UUID of the player leaving
      */
-    public void onPlayerLeave() {
+    public void onPlayerLeave(UUID playerUuid) {
+        // Remove from tracked set
+        boolean wasRemoved = trackedPlayers.remove(playerUuid);
+
+        // Only decrement if player was actually tracked
+        if (!wasRemoved) {
+            if (config.isLogTimerEvents()) {
+                logger.warn("[VelocityGCPController] Player {} was not tracked, skipping decrement", playerUuid);
+            }
+            return;
+        }
+
         int count = playerCount.decrementAndGet();
 
         if (config.isLogTimerEvents()) {
@@ -213,8 +242,18 @@ public class IdleManagementModule implements Module {
      */
     public void resetPlayerCount() {
         playerCount.set(0);
+        trackedPlayers.clear();
         if (config.isLogTimerEvents()) {
             logger.info("[VelocityGCPController] Player count reset to 0");
         }
+    }
+
+    /**
+     * Check if a player is currently tracked
+     * @param playerUuid The UUID of the player to check
+     * @return true if the player is tracked
+     */
+    public boolean isPlayerTracked(UUID playerUuid) {
+        return trackedPlayers.contains(playerUuid);
     }
 }

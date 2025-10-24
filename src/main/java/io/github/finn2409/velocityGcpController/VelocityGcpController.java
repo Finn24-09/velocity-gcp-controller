@@ -226,7 +226,7 @@ public class VelocityGcpController {
 
         // Notify idle management module
         if (config.isIdleManagementEnabled()) {
-            idleManagementModule.onPlayerJoin();
+            idleManagementModule.onPlayerJoin(event.getPlayer().getUniqueId());
         }
     }
 
@@ -237,23 +237,20 @@ public class VelocityGcpController {
     public void onDisconnect(DisconnectEvent event) {
         Player player = event.getPlayer();
 
-        // Check if player was on our managed backend server
-        if (!player.getCurrentServer().isPresent()) {
+        // Check if this player was tracked (connected to our managed backend server)
+        // We use the tracking system instead of getCurrentServer() because when a player
+        // is kicked or disconnected by the backend server, getCurrentServer() returns empty
+        if (!config.isIdleManagementEnabled()) {
             return;
         }
 
-        String serverName = player.getCurrentServer().get().getServerInfo().getName();
-        if (!serverName.equals(config.getServerName())) {
-            return;
-        }
+        if (idleManagementModule.isPlayerTracked(player.getUniqueId())) {
+            if (config.isLogConnections()) {
+                logger.info("[VelocityGCPController] Player {} disconnected from backend server", player.getUsername());
+            }
 
-        if (config.isLogConnections()) {
-            logger.info("[VelocityGCPController] Player {} disconnected from backend server", player.getUsername());
-        }
-
-        // Notify idle management module
-        if (config.isIdleManagementEnabled()) {
-            idleManagementModule.onPlayerLeave();
+            // Notify idle management module
+            idleManagementModule.onPlayerLeave(player.getUniqueId());
         }
     }
 }

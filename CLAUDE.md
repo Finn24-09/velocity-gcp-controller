@@ -103,7 +103,12 @@ Manages two critical timers:
 - **Idle Shutdown Timer**: Starts when player count reaches 0, stops instance after configurable period
 - **Startup Timeout Timer**: Prevents orphaned startups - shuts down instance if no one joins after startup
 
-Uses `AtomicInteger` for thread-safe player counting.
+**Player Tracking System**:
+- Uses `AtomicInteger` for thread-safe player counting
+- Maintains a `ConcurrentHashMap.newKeySet()` to track connected players by UUID
+- Prevents duplicate increments/decrements when the same player triggers multiple events
+- Critical for handling backend disconnects where `getCurrentServer()` returns empty
+- `onPlayerJoin(UUID)` and `onPlayerLeave(UUID)` verify player state before modifying count
 
 ### Whitelist Module (`modules/WhitelistModule.java`)
 
@@ -196,7 +201,13 @@ The plugin creates a default `config.yml` on first run. Key sections:
 
 ## Version History & Fixes
 
-### v3 (Current - October 2025)
+### v4 (Current - October 2025)
+- ✅ Fixed player count desynchronization when backend disconnects players
+- ✅ Implemented UUID-based player tracking system in IdleManagementModule
+- ✅ DisconnectEvent now uses tracking set instead of getCurrentServer() check
+- ✅ Prevents player count from incrementing indefinitely on backend kicks/timeouts
+
+### v3 (October 2025)
 - ✅ Fixed player disconnect message (shows proper startup message instead of "internal error")
 - ✅ Added all inline comments to generated config.yml
 - ✅ Updated default values (instance-name, server-name, startup message timing)
@@ -257,6 +268,9 @@ Protects against committing:
 
 ### Issue: Config file poorly formatted
 **Solution**: Use custom StringBuilder formatting with inline comments, not SnakeYAML dump.
+
+### Issue: Player count desynchronizes when backend kicks/disconnects players
+**Solution**: Use UUID-based tracking set instead of relying on `getCurrentServer()` in DisconnectEvent, since it returns empty when players are kicked by backend.
 
 ## Production Readiness Checklist
 

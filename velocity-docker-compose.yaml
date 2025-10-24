@@ -1,0 +1,29 @@
+services:
+  velocity:
+    image: itzg/mc-proxy:latest
+    container_name: velocity-proxy
+    hostname: velocity
+    restart: unless-stopped
+    ports:
+      - "25565:25577"  # Map standard Minecraft port to Velocity
+    environment:
+      # Proxy type
+      TYPE: VELOCITY
+      
+      # Memory settings
+      MEMORY: 512M
+      
+      # JVM options for large modpacks (Uncomment if joining fails with failed decoding)
+      # JVM_OPTS: "-Dvelocity.max-known-packs=1024 -Dvelocity.packet-decode-logging=true"
+      
+    volumes:
+      # Persistent storage for config and data
+      - ./velocity-data:/server
+    
+    # Health check
+    healthcheck:
+      test: mc-monitor status --host localhost --port 25577
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 60s

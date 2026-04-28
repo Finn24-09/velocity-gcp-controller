@@ -29,9 +29,9 @@ This plugin allows you to run a Velocity proxy 24/7 while your resource-intensiv
 
 ### ✅ Prerequisites
 
-- ☕ **Java 17+** for building and running
+- ☕ **Java 21+** for building and running
 - 🐘 **Gradle** (or use the wrapper - `./gradlew`)
-- ⚡ **Velocity Proxy** 3.4.0-SNAPSHOT or compatible version
+- ⚡ **Velocity Proxy** 3.5.0-SNAPSHOT or compatible version
 - ☁️ **Google Cloud Platform** account with:
   - 💻 Compute Engine instance for backend Minecraft server
   - 🔑 Service account with instance management permissions
@@ -234,8 +234,8 @@ You can edit this file manually or use `/vwhitelist` commands in-game.
 
 ### ❌ Plugin Won't Load
 
-- Check that you're running **Java 17+**
-- Verify Velocity version is **3.4.0-SNAPSHOT** or compatible
+- Check that you're running **Java 21+**
+- Verify Velocity version is **3.5.0-SNAPSHOT** or compatible
 - Check logs for configuration validation errors
 - Ensure you're using the latest build (Guice injection fix included)
 
@@ -287,7 +287,7 @@ src/main/java/io/github/finn2409/velocityGcpController/
 
 ### 📚 Dependencies
 
-- **Velocity API**: 3.4.0-SNAPSHOT
+- **Velocity API**: 3.5.0-SNAPSHOT
 - **Google Cloud Compute**: 1.54.0
 - **SnakeYAML**: 2.2
 - **OkHttp**: 4.12.0

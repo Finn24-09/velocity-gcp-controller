@@ -15,8 +15,8 @@ A fully-functional, production-ready Velocity proxy plugin for managing Google C
 - **Lines of Code**: ~2,000+ (excluding comments)
 - **Modules Implemented**: 4 (GCP, Idle Management, Whitelist, Commands)
 - **Build Size**: 41MB (with shaded dependencies)
-- **Java Version**: 17+
-- **Target Platform**: Velocity 3.4.0-SNAPSHOT
+- **Java Version**: 21+
+- **Target Platform**: Velocity 3.5.0-SNAPSHOT
 
 ---
 

@@ -75,6 +75,7 @@ java {
 tasks.withType(JavaCompile).configureEach {
     options.encoding = 'UTF-8'
     options.release.set(targetJavaVersion)
+    options.compilerArgs << '-Xlint:deprecation'
 }
 
 def templateSource = file('src/main/templates')

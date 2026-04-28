@@ -1,8 +1,11 @@
 package io.github.finn2409.velocityGcpController.config;
 
+import org.yaml.snakeyaml.LoaderOptions;
 import org.yaml.snakeyaml.Yaml;
+import org.yaml.snakeyaml.constructor.SafeConstructor;
 
-import java.io.*;
+import java.io.IOException;
+import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.*;
@@ -101,91 +104,163 @@ public class PluginConfig {
             return config;
         }
 
-        // Load existing config
-        try (InputStream input = Files.newInputStream(configPath)) {
-            Yaml yaml = new Yaml();
-            Map<String, Object> data = yaml.load(input);
+        // Read with explicit UTF-8, then sanitize before handing to SnakeYAML.
+        // Sanitization fixes two real-world failure modes that produced
+        // "expected '<document start>'" parser errors:
+        //   1. Editors that prepend a UTF-8 BOM (﻿).
+        //   2. Stray "%YAML" / "%TAG" directive lines or "---" markers added
+        //      manually by users — these flip SnakeYAML into the explicit
+        //      document path and break parsing of the first key.
+        String raw = Files.readString(configPath, StandardCharsets.UTF_8);
+        String yamlSource = sanitizeYaml(raw);
 
-            if (data == null) {
-                return config;
-            }
+        Map<String, Object> data;
+        try {
+            Yaml yaml = new Yaml(new SafeConstructor(new LoaderOptions()));
+            data = yaml.load(yamlSource);
+        } catch (RuntimeException e) {
+            throw new IOException(
+                "Failed to parse config.yml at " + configPath
+                    + ". Delete the file to regenerate defaults, or check for syntax errors. "
+                    + "First lines of file:\n" + previewFirstLines(yamlSource, 8),
+                e);
+        }
 
-            // Parse modules
-            Map<String, Object> modules = getMap(data, "modules");
-            if (modules != null) {
-                config.gcpEnabled = getBoolean(modules, "gcp", true);
-                config.idleManagementEnabled = getBoolean(modules, "idle-management", true);
-                config.whitelistEnabled = getBoolean(modules, "whitelist", true);
-                config.commandsEnabled = getBoolean(modules, "commands", true);
-            }
+        if (data == null) {
+            return config;
+        }
 
-            // Parse GCP config
-            Map<String, Object> gcp = getMap(data, "gcp");
-            if (gcp != null) {
-                config.projectId = getString(gcp, "project-id", "your-project-id");
-                config.instanceName = getString(gcp, "instance-name", "minecraft-atm10");
-                config.zone = getString(gcp, "zone", "us-central1-a");
-                config.useServiceAccount = getBoolean(gcp, "use-service-account", true);
-                config.serviceAccountKey = getString(gcp, "service-account-key", "path/to/key.json");
-                config.statusCacheSeconds = getInt(gcp, "status-cache-seconds", 10);
-                config.startupCooldownMinutes = getInt(gcp, "startup-cooldown-minutes", 5);
-            }
+        // Parse modules
+        Map<String, Object> modules = getMap(data, "modules");
+        if (modules != null) {
+            config.gcpEnabled = getBoolean(modules, "gcp", true);
+            config.idleManagementEnabled = getBoolean(modules, "idle-management", true);
+            config.whitelistEnabled = getBoolean(modules, "whitelist", true);
+            config.commandsEnabled = getBoolean(modules, "commands", true);
+        }
 
-            // Parse timers
-            Map<String, Object> timers = getMap(data, "timers");
-            if (timers != null) {
-                config.idleShutdownMinutes = getInt(timers, "idle-shutdown-minutes", 30);
-                config.startupTimeoutMinutes = getInt(timers, "startup-timeout-minutes", 15);
-            }
+        // Parse GCP config
+        Map<String, Object> gcp = getMap(data, "gcp");
+        if (gcp != null) {
+            config.projectId = getString(gcp, "project-id", "your-project-id");
+            config.instanceName = getString(gcp, "instance-name", "minecraft-atm10");
+            config.zone = getString(gcp, "zone", "us-central1-a");
+            config.useServiceAccount = getBoolean(gcp, "use-service-account", true);
+            config.serviceAccountKey = getString(gcp, "service-account-key", "path/to/key.json");
+            config.statusCacheSeconds = getInt(gcp, "status-cache-seconds", 10);
+            config.startupCooldownMinutes = getInt(gcp, "startup-cooldown-minutes", 5);
+        }
 
-            // Parse backend
-            Map<String, Object> backend = getMap(data, "backend");
-            if (backend != null) {
-                config.backendAddress = getString(backend, "address", "localhost");
-                config.backendPort = getInt(backend, "port", 25565);
-                config.serverName = getString(backend, "server-name", "atm10");
-            }
+        // Parse timers
+        Map<String, Object> timers = getMap(data, "timers");
+        if (timers != null) {
+            config.idleShutdownMinutes = getInt(timers, "idle-shutdown-minutes", 30);
+            config.startupTimeoutMinutes = getInt(timers, "startup-timeout-minutes", 15);
+        }
 
-            // Parse whitelist
-            Map<String, Object> whitelist = getMap(data, "whitelist");
-            if (whitelist != null) {
-                config.whitelistFile = getString(whitelist, "file", "whitelist.json");
-                config.kickMessage = getString(whitelist, "kick-message", "You are not whitelisted on this server.");
-            }
+        // Parse backend
+        Map<String, Object> backend = getMap(data, "backend");
+        if (backend != null) {
+            config.backendAddress = getString(backend, "address", "localhost");
+            config.backendPort = getInt(backend, "port", 25565);
+            config.serverName = getString(backend, "server-name", "atm10");
+        }
 
-            // Parse commands
-            Map<String, Object> commands = getMap(data, "commands");
-            if (commands != null) {
-                Object uuids = commands.get("authorized-uuids");
-                if (uuids instanceof List) {
-                    config.authorizedUuids = new ArrayList<>();
-                    for (Object uuid : (List<?>) uuids) {
-                        config.authorizedUuids.add(uuid.toString());
-                    }
+        // Parse whitelist
+        Map<String, Object> whitelist = getMap(data, "whitelist");
+        if (whitelist != null) {
+            config.whitelistFile = getString(whitelist, "file", "whitelist.json");
+            config.kickMessage = getString(whitelist, "kick-message", "You are not whitelisted on this server.");
+        }
+
+        // Parse commands
+        Map<String, Object> commands = getMap(data, "commands");
+        if (commands != null) {
+            Object uuids = commands.get("authorized-uuids");
+            if (uuids instanceof List) {
+                config.authorizedUuids = new ArrayList<>();
+                for (Object uuid : (List<?>) uuids) {
+                    config.authorizedUuids.add(uuid.toString());
                 }
-                config.pingEnabled = getBoolean(commands, "ping-enabled", true);
-                config.vwhitelistEnabled = getBoolean(commands, "vwhitelist-enabled", true);
             }
+            config.pingEnabled = getBoolean(commands, "ping-enabled", true);
+            config.vwhitelistEnabled = getBoolean(commands, "vwhitelist-enabled", true);
+        }
 
-            // Parse messages
-            Map<String, Object> messages = getMap(data, "messages");
-            if (messages != null) {
-                config.serverStartingMessage = getString(messages, "server-starting", "&eServer is starting! &aPlease reconnect in 2-3 minutes.");
-                config.startupFailedMessage = getString(messages, "startup-failed", "&cFailed to start server. Please contact an administrator.");
-                config.gcpDisabledMessage = getString(messages, "gcp-disabled", "&cBackend server is offline and auto-start is disabled.");
-            }
+        // Parse messages
+        Map<String, Object> messages = getMap(data, "messages");
+        if (messages != null) {
+            config.serverStartingMessage = getString(messages, "server-starting", "&eServer is starting! &aPlease reconnect in 2-3 minutes.");
+            config.startupFailedMessage = getString(messages, "startup-failed", "&cFailed to start server. Please contact an administrator.");
+            config.gcpDisabledMessage = getString(messages, "gcp-disabled", "&cBackend server is offline and auto-start is disabled.");
+        }
 
-            // Parse logging
-            Map<String, Object> logging = getMap(data, "logging");
-            if (logging != null) {
-                config.logConnections = getBoolean(logging, "log-connections", true);
-                config.logGcpCommands = getBoolean(logging, "log-gcp-commands", true);
-                config.logWhitelistChecks = getBoolean(logging, "log-whitelist-checks", false);
-                config.logTimerEvents = getBoolean(logging, "log-timer-events", true);
-            }
+        // Parse logging
+        Map<String, Object> logging = getMap(data, "logging");
+        if (logging != null) {
+            config.logConnections = getBoolean(logging, "log-connections", true);
+            config.logGcpCommands = getBoolean(logging, "log-gcp-commands", true);
+            config.logWhitelistChecks = getBoolean(logging, "log-whitelist-checks", false);
+            config.logTimerEvents = getBoolean(logging, "log-timer-events", true);
         }
 
         return config;
+    }
+
+    /**
+     * Remove a UTF-8 BOM and any leading YAML directives or document markers
+     * that would otherwise force SnakeYAML into the explicit-document parser
+     * path. The plugin's {@link #save(Path)} method never emits these, so any
+     * present in a user-edited file are accidental and safe to drop.
+     */
+    static String sanitizeYaml(String input) {
+        if (input == null || input.isEmpty()) {
+            return "";
+        }
+
+        // Strip UTF-8 BOM (U+FEFF) if present.
+        if (input.charAt(0) == 0xFEFF) {
+            input = input.substring(1);
+        }
+
+        StringBuilder out = new StringBuilder(input.length());
+        boolean inHeader = true;
+        for (String line : input.split("\\R", -1)) {
+            if (inHeader) {
+                String stripped = line.stripLeading();
+                if (stripped.isEmpty() || stripped.startsWith("#")) {
+                    out.append(line).append('\n');
+                    continue;
+                }
+                // Drop directives ("%YAML 1.2", "%TAG !x! tag:") and document
+                // start/end markers. These flip SnakeYAML into a state where
+                // the very next mapping triggers
+                // "expected '<document start>'" — the symptom we are guarding
+                // against. Replacing them with a comment preserves line
+                // numbers in any future error messages.
+                if (stripped.startsWith("%") || stripped.equals("---") || stripped.equals("...")) {
+                    out.append("# ").append(line).append('\n');
+                    continue;
+                }
+                inHeader = false;
+            }
+            out.append(line).append('\n');
+        }
+        return out.toString();
+    }
+
+    private static String previewFirstLines(String input, int maxLines) {
+        if (input == null) return "(empty)";
+        String[] lines = input.split("\\R", -1);
+        StringBuilder sb = new StringBuilder();
+        int limit = Math.min(maxLines, lines.length);
+        for (int i = 0; i < limit; i++) {
+            sb.append(String.format("  %3d| %s%n", i + 1, lines[i]));
+        }
+        if (lines.length > limit) {
+            sb.append("  ... (").append(lines.length - limit).append(" more lines)\n");
+        }
+        return sb.toString();
     }
 
     public void save(Path configPath) throws IOException {
@@ -206,11 +281,11 @@ public class PluginConfig {
         // GCP
         sb.append("# Google Cloud Platform Configuration\n");
         sb.append("gcp:\n");
-        sb.append("  project-id: \"").append(projectId).append("\"              # Your GCP project ID\n");
-        sb.append("  instance-name: \"").append(instanceName).append("\"           # Name of the Compute Engine instance\n");
-        sb.append("  zone: \"").append(zone).append("\"                      # GCP zone (e.g., us-central1-a, europe-west1-b)\n");
+        sb.append("  project-id: \"").append(yamlEscape(projectId)).append("\"              # Your GCP project ID\n");
+        sb.append("  instance-name: \"").append(yamlEscape(instanceName)).append("\"           # Name of the Compute Engine instance\n");
+        sb.append("  zone: \"").append(yamlEscape(zone)).append("\"                      # GCP zone (e.g., us-central1-a, europe-west1-b)\n");
         sb.append("  use-service-account: ").append(useServiceAccount).append("                  # Use instance service account (true) or JSON key (false)\n");
-        sb.append("  service-account-key: \"").append(serviceAccountKey).append("\"    # Path to JSON key file (only if use-service-account: false)\n");
+        sb.append("  service-account-key: \"").append(yamlEscape(serviceAccountKey)).append("\"    # Path to JSON key file (only if use-service-account: false)\n");
         sb.append("  status-cache-seconds: ").append(statusCacheSeconds).append("                   # How long to cache instance status (reduces API calls)\n");
         sb.append("  startup-cooldown-minutes: ").append(startupCooldownMinutes).append("                # Cooldown to prevent duplicate start commands\n\n");
 
@@ -223,22 +298,22 @@ public class PluginConfig {
         // Backend
         sb.append("# Backend Server Configuration\n");
         sb.append("backend:\n");
-        sb.append("  address: \"").append(backendAddress).append("\"            # Backend server address\n");
+        sb.append("  address: \"").append(yamlEscape(backendAddress)).append("\"            # Backend server address\n");
         sb.append("  port: ").append(backendPort).append("                     # Backend server port\n");
-        sb.append("  server-name: \"").append(serverName).append("\"            # Server name as defined in velocity.toml\n\n");
+        sb.append("  server-name: \"").append(yamlEscape(serverName)).append("\"            # Server name as defined in velocity.toml\n\n");
 
         // Whitelist
         sb.append("# Whitelist Configuration\n");
         sb.append("whitelist:\n");
-        sb.append("  file: \"").append(whitelistFile).append("\"                                # Whitelist file name (Minecraft format)\n");
-        sb.append("  kick-message: \"").append(kickMessage).append("\"  # Message for non-whitelisted players\n\n");
+        sb.append("  file: \"").append(yamlEscape(whitelistFile)).append("\"                                # Whitelist file name (Minecraft format)\n");
+        sb.append("  kick-message: \"").append(yamlEscape(kickMessage)).append("\"  # Message for non-whitelisted players\n\n");
 
         // Commands
         sb.append("# Commands Configuration\n");
         sb.append("commands:\n");
         sb.append("  authorized-uuids:               # Player UUIDs authorized to use /vwhitelist\n");
         for (String uuid : authorizedUuids) {
-            sb.append("    - \"").append(uuid).append("\"  # Replace with your UUID\n");
+            sb.append("    - \"").append(yamlEscape(uuid)).append("\"  # Replace with your UUID\n");
         }
         sb.append("  ping-enabled: ").append(pingEnabled).append("              # Enable /ping command\n");
         sb.append("  vwhitelist-enabled: ").append(vwhitelistEnabled).append("        # Enable /vwhitelist commands\n\n");
@@ -246,9 +321,9 @@ public class PluginConfig {
         // Messages
         sb.append("# Player Messages (supports & color codes)\n");
         sb.append("messages:\n");
-        sb.append("  server-starting: \"").append(serverStartingMessage).append("\"\n");
-        sb.append("  startup-failed: \"").append(startupFailedMessage).append("\"\n");
-        sb.append("  gcp-disabled: \"").append(gcpDisabledMessage).append("\"\n\n");
+        sb.append("  server-starting: \"").append(yamlEscape(serverStartingMessage)).append("\"\n");
+        sb.append("  startup-failed: \"").append(yamlEscape(startupFailedMessage)).append("\"\n");
+        sb.append("  gcp-disabled: \"").append(yamlEscape(gcpDisabledMessage)).append("\"\n\n");
 
         // Logging
         sb.append("# Logging Configuration\n");
@@ -258,7 +333,31 @@ public class PluginConfig {
         sb.append("  log-whitelist-checks: ").append(logWhitelistChecks).append("     # Log whitelist check results (can be verbose)\n");
         sb.append("  log-timer-events: ").append(logTimerEvents).append("          # Log timer start/cancel/expiry events\n");
 
-        Files.writeString(configPath, sb.toString());
+        Files.writeString(configPath, sb.toString(), StandardCharsets.UTF_8);
+    }
+
+    /**
+     * Escape a value going into a double-quoted YAML scalar. Without this,
+     * a kick message containing {@code "} would close the scalar early and
+     * produce an invalid file that fails to parse on the next plugin load.
+     */
+    static String yamlEscape(String value) {
+        if (value == null) {
+            return "";
+        }
+        StringBuilder out = new StringBuilder(value.length());
+        for (int i = 0; i < value.length(); i++) {
+            char c = value.charAt(i);
+            switch (c) {
+                case '\\' -> out.append("\\\\");
+                case '"' -> out.append("\\\"");
+                case '\n' -> out.append("\\n");
+                case '\r' -> out.append("\\r");
+                case '\t' -> out.append("\\t");
+                default -> out.append(c);
+            }
+        }
+        return out.toString();
     }
 
     public List<String> validate() {

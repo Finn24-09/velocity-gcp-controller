@@ -1,11 +1,10 @@
 package io.github.finn2409.velocityGcpController;
 
 import com.google.inject.Inject;
-import com.velocitypowered.api.event.PostOrder;
 import com.velocitypowered.api.event.ResultedEvent;
 import com.velocitypowered.api.event.Subscribe;
 import com.velocitypowered.api.event.connection.DisconnectEvent;
-import com.velocitypowered.api.event.connection.PreLoginEvent;
+import com.velocitypowered.api.event.connection.LoginEvent;
 import com.velocitypowered.api.event.player.ServerConnectedEvent;
 import com.velocitypowered.api.event.player.ServerPreConnectEvent;
 import com.velocitypowered.api.event.proxy.ProxyInitializeEvent;
@@ -118,25 +117,31 @@ public class VelocityGcpController {
     }
 
     /**
-     * Handle pre-login event for whitelist checking
+     * Handle login event for whitelist checking.
+     *
+     * <p>LoginEvent fires after Mojang authentication has completed, so
+     * {@link Player#getUniqueId()} is the authenticated Mojang UUID — the same
+     * value stored in {@code whitelist.json} via the Mojang lookup performed by
+     * {@code /vwhitelist add}. Earlier events (e.g. {@code PreLoginEvent}) only
+     * expose the client-supplied UUID, which is null on Minecraft &lt;= 1.19.2
+     * and is not guaranteed to match the authenticated UUID.</p>
      */
-    @Subscribe(order = PostOrder.FIRST)
-    public void onPreLogin(PreLoginEvent event) {
-        if (!config.isWhitelistEnabled()) {
+    @Subscribe(priority = Short.MAX_VALUE)
+    public void onLogin(LoginEvent event) {
+        if (!config.isWhitelistEnabled() || whitelistModule == null) {
             return;
         }
 
-        if (!whitelistModule.isWhitelisted(event.getUniqueId())) {
+        Player player = event.getPlayer();
+        if (!whitelistModule.isWhitelisted(player.getUniqueId())) {
             if (config.isLogWhitelistChecks()) {
-                logger.info("[VelocityGCPController] Player {} failed whitelist check", event.getUsername());
+                logger.info("[VelocityGCPController] Player {} failed whitelist check", player.getUsername());
             }
-            event.setResult(PreLoginEvent.PreLoginComponentResult.denied(
+            event.setResult(ResultedEvent.ComponentResult.denied(
                 MessageFormatter.format(config.getKickMessage())
             ));
-        } else {
-            if (config.isLogWhitelistChecks()) {
-                logger.info("[VelocityGCPController] Player {} passed whitelist check", event.getUsername());
-            }
+        } else if (config.isLogWhitelistChecks()) {
+            logger.info("[VelocityGCPController] Player {} passed whitelist check", player.getUsername());
         }
     }
 

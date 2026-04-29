@@ -4,7 +4,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ## Project Overview
 
-This is a production-ready Velocity proxy plugin designed to manage Google Cloud Platform Compute Engine instances for Minecraft servers, enabling automatic startup/shutdown while maintaining 24/7 proxy availability. The plugin is built using Java 17 and targets the Velocity proxy version 3.4.0-SNAPSHOT.
+This is a production-ready Velocity proxy plugin designed to manage Google Cloud Platform Compute Engine instances for Minecraft servers, enabling automatic startup/shutdown while maintaining 24/7 proxy availability. The plugin is built using Java 21 and targets the Velocity proxy version 3.5.0-SNAPSHOT.
 
 **Status**: Production Ready | Public Release Ready | Fully Tested
 
@@ -12,8 +12,8 @@ This is a production-ready Velocity proxy plugin designed to manage Google Cloud
 
 The project uses Gradle with several key features:
 
-- **Java Version**: Java 17 (required)
-- **Velocity API**: 3.4.0-SNAPSHOT from PaperMC repository
+- **Java Version**: Java 21 (required)
+- **Velocity API**: 3.5.0-SNAPSHOT from PaperMC repository
 - **Shadow Plugin**: Bundles dependencies into the final JAR with relocation to avoid conflicts
 - **Build Template System**: Version numbers are injected at build time via template expansion
 
@@ -201,7 +201,14 @@ The plugin creates a default `config.yml` on first run. Key sections:
 
 ## Version History & Fixes
 
-### v4 (Current - October 2025)
+### v5 (Current - April 2026)
+- ✅ Upgraded Velocity API to 3.5.0-SNAPSHOT
+- ✅ Bumped Java toolchain from 17 to 21 (matches Velocity 3.5.0 baseline)
+- ✅ Migrated from unmaintained `com.github.johnrengelman.shadow` to `com.gradleup.shadow`
+- ✅ Bumped `xyz.jpenilla.run-velocity` Gradle plugin to 3.0.2
+- ✅ Verified all consumed Velocity APIs (events, scheduler, command manager, plugin annotation, Adventure pipeline) are source-compatible — zero source changes required
+
+### v4 (October 2025)
 - ✅ Fixed player count desynchronization when backend disconnects players
 - ✅ Implemented UUID-based player tracking system in IdleManagementModule
 - ✅ DisconnectEvent now uses tracking set instead of getCurrentServer() check

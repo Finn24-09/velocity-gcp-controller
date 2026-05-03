@@ -14,7 +14,7 @@ services:
       MEMORY: 512M
       
       # JVM options for large modpacks (Uncomment if joining fails with failed decoding)
-      # JVM_OPTS: "-Dvelocity.max-known-packs=1024 -Dvelocity.packet-decode-logging=true"
+      # JVM_OPTS: "-Dvelocity.max-known-packs=1024 -Dvelocity.max-plugin-message-payload-size=10485760 -Dvelocity.skip-uncompressed-packet-size-validation=true -Dvelocity.increased-compression-cap=true -Dvelocity.strict-configuration=false"
       
     volumes:
       # Persistent storage for config and data

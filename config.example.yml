@@ -18,6 +18,11 @@ gcp:
   service-account-key: "path/to/key.json"    # Path to JSON key file (only if use-service-account: false)
   status-cache-seconds: 10                   # How long to cache instance status (reduces API calls)
   startup-cooldown-minutes: 5                # Cooldown to prevent duplicate start commands
+  shutdown-mode: "stop"                      # "stop" (default, full TERMINATE - cheapest) or "suspend"
+                                             # (save RAM to disk - ~10-30s resume vs 2-3min cold start;
+                                             # small ongoing cost for memory snapshot disk + reserved IP).
+                                             # Auto-falls back to stop if the machine type does not
+                                             # support suspend. See README for compatibility notes.
 
 # Timer Configuration
 timers:

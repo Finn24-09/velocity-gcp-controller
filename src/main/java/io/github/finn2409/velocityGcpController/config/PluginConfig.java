@@ -25,6 +25,7 @@ public class PluginConfig {
     private String serviceAccountKey;
     private int statusCacheSeconds;
     private int startupCooldownMinutes;
+    private ShutdownMode shutdownMode;
 
     // Timers
     private int idleShutdownMinutes;
@@ -55,6 +56,9 @@ public class PluginConfig {
     private boolean logWhitelistChecks;
     private boolean logTimerEvents;
 
+    // Tracks an invalid raw shutdown-mode value so getWarnings() can surface it
+    private String invalidShutdownModeValue;
+
     public PluginConfig() {
         // Default values
         this.gcpEnabled = true;
@@ -69,6 +73,7 @@ public class PluginConfig {
         this.serviceAccountKey = "path/to/key.json";
         this.statusCacheSeconds = 10;
         this.startupCooldownMinutes = 5;
+        this.shutdownMode = ShutdownMode.STOP;
 
         this.idleShutdownMinutes = 30;
         this.startupTimeoutMinutes = 15;
@@ -149,6 +154,16 @@ public class PluginConfig {
             config.serviceAccountKey = getString(gcp, "service-account-key", "path/to/key.json");
             config.statusCacheSeconds = getInt(gcp, "status-cache-seconds", 10);
             config.startupCooldownMinutes = getInt(gcp, "startup-cooldown-minutes", 5);
+
+            String rawShutdownMode = getString(gcp, "shutdown-mode", "stop");
+            ShutdownMode parsedMode = ShutdownMode.parse(rawShutdownMode, ShutdownMode.STOP);
+            if (parsedMode == ShutdownMode.STOP
+                && rawShutdownMode != null
+                && !rawShutdownMode.trim().isEmpty()
+                && !rawShutdownMode.trim().equalsIgnoreCase("stop")) {
+                config.invalidShutdownModeValue = rawShutdownMode;
+            }
+            config.shutdownMode = parsedMode;
         }
 
         // Parse timers
@@ -287,7 +302,8 @@ public class PluginConfig {
         sb.append("  use-service-account: ").append(useServiceAccount).append("                  # Use instance service account (true) or JSON key (false)\n");
         sb.append("  service-account-key: \"").append(yamlEscape(serviceAccountKey)).append("\"    # Path to JSON key file (only if use-service-account: false)\n");
         sb.append("  status-cache-seconds: ").append(statusCacheSeconds).append("                   # How long to cache instance status (reduces API calls)\n");
-        sb.append("  startup-cooldown-minutes: ").append(startupCooldownMinutes).append("                # Cooldown to prevent duplicate start commands\n\n");
+        sb.append("  startup-cooldown-minutes: ").append(startupCooldownMinutes).append("                # Cooldown to prevent duplicate start commands\n");
+        sb.append("  shutdown-mode: \"").append(shutdownMode.asConfigValue()).append("\"               # \"stop\" (default, full TERMINATE, cheapest) or \"suspend\" (save RAM to disk, ~10-30s resume vs 2-3min cold start; small ongoing cost for memory snapshot)\n\n");
 
         // Timers
         sb.append("# Timer Configuration\n");
@@ -401,6 +417,11 @@ public class PluginConfig {
             warnings.add("WARNING: Timer settings configured but gcp module is disabled - settings will be ignored");
         }
 
+        if (invalidShutdownModeValue != null) {
+            warnings.add("WARNING: shutdown-mode value '" + invalidShutdownModeValue
+                + "' is invalid. Must be 'stop' or 'suspend'. Defaulting to 'stop'.");
+        }
+
         return warnings;
     }
 
@@ -448,6 +469,7 @@ public class PluginConfig {
     public String getServiceAccountKey() { return serviceAccountKey; }
     public int getStatusCacheSeconds() { return statusCacheSeconds; }
     public int getStartupCooldownMinutes() { return startupCooldownMinutes; }
+    public ShutdownMode getShutdownMode() { return shutdownMode; }
 
     public int getIdleShutdownMinutes() { return idleShutdownMinutes; }
     public int getStartupTimeoutMinutes() { return startupTimeoutMinutes; }

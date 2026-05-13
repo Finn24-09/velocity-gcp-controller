@@ -201,7 +201,19 @@ The plugin creates a default `config.yml` on first run. Key sections:
 
 ## Version History & Fixes
 
-### v5 (Current - April 2026)
+### v6 (Current - May 2026)
+- ✅ Added `gcp.shutdown-mode` config option (`stop` | `suspend`, default `stop`)
+- ✅ `GcpModule` learned a status-aware state machine: `startInstance()` now resumes
+  SUSPENDED instances and only cold-starts TERMINATED ones; `shutdownInstance()`
+  dispatches to suspend or stop based on configured mode
+- ✅ Automatic fallback to stop if suspend fails (machine type unsupported, 60-day
+  expiry, API errors) - never leaves a VM orphaned in RUNNING
+- ✅ Existing public `stopInstance()` retained as deprecated alias for `shutdownInstance()`
+- ✅ Status cache now invalidated after suspend/resume as well as start/stop
+- ✅ Required GCP permissions documented with optional `compute.instances.suspend`
+  and `compute.instances.resume` when using suspend mode
+
+### v5 (April 2026)
 - ✅ Upgraded Velocity API to 3.5.0-SNAPSHOT
 - ✅ Bumped Java toolchain from 17 to 21 (matches Velocity 3.5.0 baseline)
 - ✅ Migrated from unmaintained `com.github.johnrengelman.shadow` to `com.gradleup.shadow`

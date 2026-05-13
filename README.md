@@ -43,6 +43,8 @@ The service account needs these permissions:
 - `compute.instances.start`
 - `compute.instances.stop`
 - `compute.instances.get`
+- `compute.instances.suspend` (only if using `shutdown-mode: suspend`)
+- `compute.instances.resume` (only if using `shutdown-mode: suspend`)
 
 **Recommended Role Options:**
 
@@ -144,6 +146,21 @@ Enable or disable features:
 - `commands`: Enable `/ping` and `/vwhitelist` commands
 
 **Important**: `gcp` and `idle-management` must both be true or both be false.
+
+#### 💤 Shutdown Mode (Stop vs Suspend)
+
+The `gcp.shutdown-mode` option controls how the plugin takes the backend VM offline when players leave or the startup timeout expires.
+
+| Mode | Behavior | Resume time | Ongoing cost while offline |
+|---|---|---|---|
+| `stop` (default) | Full TERMINATE — VM is shut down. Memory is lost. | 2–3 min cold boot for heavy modpacks | Persistent disk + reserved IP only |
+| `suspend` | RAM is saved to a memory-snapshot disk; CPU is paused. | ~10–30 s resume | Persistent disk + reserved IP + small fee for the memory snapshot disk |
+
+**When to choose `suspend`**: heavy modpacks where startup latency is the worst part of the player experience and the small ongoing cost is acceptable.
+
+**Machine type compatibility**: not all machine types support GCP suspend. Notable exclusions at the time of writing include some shared-core (e.g., `e2-micro`), GPU-attached, and local-SSD configurations — see [GCP docs](https://cloud.google.com/compute/docs/instances/suspend-resume-instance#restrictions) for the current list. If a suspend request fails for any reason, the plugin **automatically falls back to a full stop** so the VM never ends up orphaned in RUNNING state. Watch the logs for `Suspend failed, falling back to stop` to confirm.
+
+**60-day limit**: GCP officially limits how long a VM can stay suspended (currently 60 days) before the memory snapshot may be discarded. If your server can sit unused for that long, prefer `stop`.
 
 ## ⚡ Velocity Configuration
 

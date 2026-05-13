@@ -162,10 +162,10 @@ public class IdleManagementModule implements Module {
         }
 
         if (config.isLogTimerEvents()) {
-            logger.info("[VelocityGCPController] Idle shutdown timer expired, executing GCP stop command");
+            logger.info("[VelocityGCPController] Idle shutdown timer expired, executing GCP shutdown command");
         }
 
-        gcpModule.stopInstance().thenAccept(success -> {
+        gcpModule.shutdownInstance().thenAccept(success -> {
             if (success) {
                 logger.info("[VelocityGCPController] Idle shutdown completed successfully");
             } else {
@@ -218,10 +218,10 @@ public class IdleManagementModule implements Module {
         }
 
         if (config.isLogTimerEvents()) {
-            logger.info("[VelocityGCPController] Startup timeout expired (orphaned startup), executing GCP stop command");
+            logger.info("[VelocityGCPController] Startup timeout expired (orphaned startup), executing GCP shutdown command");
         }
 
-        gcpModule.stopInstance().thenAccept(success -> {
+        gcpModule.shutdownInstance().thenAccept(success -> {
             if (success) {
                 logger.info("[VelocityGCPController] Orphaned startup shutdown completed successfully");
             } else {
